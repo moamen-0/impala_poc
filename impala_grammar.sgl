@@ -1,0 +1,273 @@
+// Apache Impala SGL Grammar (Proof of Concept)
+// For SQLancer GSoC 2025 project: Adding Grammars to Test New Database Systems
+
+// --- Top-Level Statements ---
+
+rule Statement {
+  | <CreateTableStatement>
+  | <SelectStatement>
+  | <InsertStatement>
+  | <UpdateStatement>
+  | <DeleteStatement>
+}
+
+// --- CREATE TABLE ---
+
+rule CreateTableStatement {
+  CREATE TABLE [IF NOT EXISTS] <Identifier> (
+    <ColumnDefinitionList>
+  )
+  [<TableOptions>]
+}
+
+rule ColumnDefinitionList {
+  <ColumnDefinition> [, <ColumnDefinitionList>]
+}
+
+rule ColumnDefinition {
+  <Identifier> <DataType> [<ColumnConstraint>]
+}
+
+rule DataType {
+  | TINYINT
+  | SMALLINT
+  | INT
+  | BIGINT
+  | FLOAT
+  | DOUBLE
+  | DECIMAL[(<Integer>, <Integer>)]
+  | STRING
+  | CHAR(<Integer>)
+  | VARCHAR(<Integer>)
+  | BOOLEAN
+  | TIMESTAMP
+  | DATE
+}
+
+rule ColumnConstraint {
+  | PRIMARY KEY
+  | NOT NULL
+}
+
+rule TableOptions {
+  [PARTITIONED BY (<ColumnNameList>)]
+  [STORED AS <FileFormat>]
+  [LOCATION <StringLiteral>]
+}
+
+rule FileFormat {
+  | PARQUET
+  | TEXTFILE
+  | AVRO
+  | SEQUENCEFILE
+  | RCFILE
+  | ORC
+}
+
+// --- SELECT ---
+
+rule SelectStatement {
+  SELECT [DISTINCT] <SelectList>
+  FROM <TableExpression>
+  [<WhereClause>]
+  [<GroupByClause>]
+  [<HavingClause>]
+  [<OrderByClause>]
+  [<LimitClause>]
+}
+
+rule SelectList {
+  | *
+  | <SelectItem> [, <SelectList>]
+}
+
+rule SelectItem {
+  | <Expression> [AS <Identifier>]
+}
+
+rule TableExpression {
+  | <Identifier>
+  | <Identifier> [AS] <Identifier>
+  | <JoinExpression>
+}
+
+rule JoinExpression {
+  <TableExpression> <JoinType> JOIN <TableExpression> ON <Expression>
+}
+
+rule JoinType {
+  | [INNER]
+  | LEFT [OUTER]
+  | RIGHT [OUTER]
+  | FULL [OUTER]
+}
+
+rule WhereClause {
+  WHERE <Expression>
+}
+
+rule GroupByClause {
+  GROUP BY <ExpressionList>
+}
+
+rule HavingClause {
+  HAVING <Expression>
+}
+
+rule OrderByClause {
+  ORDER BY <OrderItem> [, <OrderItem>]
+}
+
+rule OrderItem {
+  <Expression> [ASC | DESC] [NULLS (FIRST | LAST)]
+}
+
+rule LimitClause {
+  LIMIT <Integer>
+}
+
+// --- INSERT ---
+
+rule InsertStatement {
+  INSERT INTO <Identifier> 
+  [(<ColumnNameList>)]
+  <InsertSource>
+}
+
+rule InsertSource {
+  | VALUES <ValuesList>
+  | <SelectStatement>
+}
+
+rule ValuesList {
+  (<LiteralList>) [, <ValuesList>]
+}
+
+// --- UPDATE ---
+
+rule UpdateStatement {
+  UPDATE <Identifier>
+  SET <UpdateList>
+  [<WhereClause>]
+}
+
+rule UpdateList {
+  <Identifier> = <Expression> [, <UpdateList>]
+}
+
+// --- DELETE ---
+
+rule DeleteStatement {
+  DELETE FROM <Identifier>
+  [<WhereClause>]
+}
+
+// --- Expressions ---
+
+rule Expression {
+  | <Literal>
+  | <Identifier>
+  | <FunctionCall>
+  | <Expression> <BinaryOperator> <Expression>
+  | <UnaryOperator> <Expression>
+  | (<Expression>)
+  | <CaseExpression>
+  | <CastExpression>
+}
+
+rule BinaryOperator {
+  | +
+  | -
+  | *
+  | /
+  | %
+  | =
+  | <>
+  | !=
+  | <
+  | <=
+  | >
+  | >=
+  | AND
+  | OR
+  | IS
+  | IS NOT
+  | LIKE
+  | RLIKE
+  | REGEXP
+  | IN
+}
+
+rule UnaryOperator {
+  | -
+  | NOT
+}
+
+rule FunctionCall {
+  <Identifier>([<ExpressionList>])
+}
+
+rule CaseExpression {
+  CASE
+    [<Expression>]
+    <WhenClauseList>
+    [ELSE <Expression>]
+  END
+}
+
+rule WhenClauseList {
+  WHEN <Expression> THEN <Expression>
+  [<WhenClauseList>]
+}
+
+rule CastExpression {
+  CAST(<Expression> AS <DataType>)
+}
+
+// --- Basic Elements ---
+
+rule ExpressionList {
+  <Expression> [, <ExpressionList>]
+}
+
+rule ColumnNameList {
+  <Identifier> [, <ColumnNameList>]
+}
+
+rule LiteralList {
+  <Literal> [, <LiteralList>]
+}
+
+rule Literal {
+  | <StringLiteral>
+  | <NumericLiteral>
+  | <BooleanLiteral>
+  | NULL
+}
+
+rule StringLiteral {
+  '...' | "..."  // String literals in single or double quotes
+}
+
+rule NumericLiteral {
+  | <Integer>
+  | <Float>
+}
+
+rule Integer {
+  [+|-]?[0-9]+
+}
+
+rule Float {
+  [+|-]?[0-9]+\.[0-9]*
+}
+
+rule BooleanLiteral {
+  | TRUE
+  | FALSE
+}
+
+rule Identifier {
+  [a-zA-Z_][a-zA-Z0-9_]*  // Simple identifiers
+  | `...`                 // Backtick quoted identifiers
+}
