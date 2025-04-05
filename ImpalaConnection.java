@@ -1,4 +1,4 @@
-package sqlancer.impala;
+//package sqlancer.impala;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -18,6 +18,7 @@ import java.util.List;
  * 
  * For GSoC 2025 project proposal: Adding Grammars to Test New Database Systems
  */
+
 public class ImpalaConnection {
 
     private Connection connection;
@@ -160,10 +161,165 @@ public class ImpalaConnection {
     }
     
     /**
+     * Mock implementation of ImpalaConnection for demonstration purposes.
+     * This simulates the behavior of a real Impala connection.
+     */
+    public static class MockImpalaConnection extends ImpalaConnection {
+        
+        private boolean connected = false;
+        private String currentDatabase = "default";
+        
+        /**
+         * Creates a new mock Impala connection.
+         */
+        public MockImpalaConnection() {
+            super("localhost", 21050, "default", "", "");
+        }
+        
+        @Override
+        public void connect() throws SQLException {
+            connected = true;
+            System.out.println("Connected to mock Apache Impala instance at jdbc:impala://localhost:21050/default");
+        }
+        
+        @Override
+        public void createTestDatabase(String testDbName) throws SQLException {
+            if (!connected) {
+                throw new SQLException("Not connected to Impala");
+            }
+            
+            System.out.println("DROP DATABASE IF EXISTS " + testDbName + " CASCADE");
+            System.out.println("CREATE DATABASE " + testDbName);
+            System.out.println("USE " + testDbName);
+            currentDatabase = testDbName;
+            System.out.println("Created test database: " + testDbName);
+        }
+        
+        @Override
+        public List<String> getTables() throws SQLException {
+            if (!connected) {
+                throw new SQLException("Not connected to Impala");
+            }
+            
+            // Simulate a query to list tables
+            List<String> tables = new ArrayList<>();
+            tables.add("test_table");
+            return tables;
+        }
+        
+        @Override
+        public List<Column> getTableColumns(String tableName) throws SQLException {
+            if (!connected) {
+                throw new SQLException("Not connected to Impala");
+            }
+            
+            // Simulate a query to get column information
+            List<Column> columns = new ArrayList<>();
+            columns.add(new Column("id", "INT"));
+            columns.add(new Column("name", "STRING"));
+            columns.add(new Column("value", "DOUBLE"));
+            return columns;
+        }
+        
+        /**
+         * Creates a test table with sample data.
+         */
+        public void createTestTableWithData() throws SQLException {
+            if (!connected) {
+                throw new SQLException("Not connected to Impala");
+            }
+            
+            System.out.println("CREATE TABLE test_table (id INT, name STRING, value DOUBLE)");
+            System.out.println("Created test table");
+            
+            System.out.println("INSERT INTO test_table VALUES (1, 'test1', 10.5), (2, 'test2', 20.3)");
+            System.out.println("Inserted test data");
+        }
+        
+        @Override
+        public void close() {
+            if (connected) {
+                connected = false;
+                System.out.println("Mock connection closed");
+            }
+        }
+        
+        /**
+         * Main method to demonstrate the mock functionality.
+         */
+        public static void main(String[] args) {
+            System.out.println("Starting Impala connection test (mock implementation)...");
+            
+            // Create a mock Impala connection
+            MockImpalaConnection impala = new MockImpalaConnection();
+            
+            try {
+                // Connect to mock Impala
+                impala.connect();
+                
+                // Create test database
+                impala.createTestDatabase("sqlancer_test");
+                
+                // Create a sample table with data
+                impala.createTestTableWithData();
+                
+                // List tables
+                List<String> tables = impala.getTables();
+                System.out.println("Tables in database: " + tables);
+                
+                // Get column information
+                if (!tables.isEmpty()) {
+                    List<Column> columns = impala.getTableColumns(tables.get(0));
+                    System.out.println("Columns in " + tables.get(0) + ":");
+                    for (Column col : columns) {
+                        System.out.println("  " + col);
+                    }
+                }
+                
+            } catch (SQLException e) {
+                System.err.println("SQL Error: " + e.getMessage());
+                e.printStackTrace();
+            } finally {
+                // Close connection
+                impala.close();
+            }
+        }
+    }
+    
+    /**
      * Simple test method demonstrating the functionality.
      */
     public static void main(String[] args) {
-        ImpalaConnection impala = new ImpalaConnection("localhost", 21050, "default", "", "");
+        System.out.println("Starting Impala connection test...");
+        ImpalaConnection impala = null;
+        try {
+            // Try to load the Impala JDBC driver explicitly
+            try {
+                Class.forName("com.cloudera.impala.jdbc.Driver");
+                System.out.println("Successfully loaded Impala JDBC driver");
+            } catch (ClassNotFoundException e) {
+                System.out.println("Could not load default Impala driver: " + e);
+                
+                // Try alternative driver class names
+                try {
+                    Class.forName("com.cloudera.impala.jdbc42.Driver");
+                    System.out.println("Successfully loaded Impala JDBC42 driver");
+                } catch (ClassNotFoundException e2) {
+                    System.out.println("Could not load JDBC42 driver: " + e2);
+                    
+                    try {
+                        Class.forName("com.cloudera.impala.jdbc41.Driver");
+                        System.out.println("Successfully loaded Impala JDBC41 driver");
+                    } catch (ClassNotFoundException e3) {
+                        System.err.println("Failed to load any Impala JDBC driver");
+                        System.err.println("Check your classpath and driver JAR file");
+                        return; // Exit early, can't continue without driver
+                    }
+                }
+            }
+                    impala = new ImpalaConnection("localhost", 21050, "default", "", "");
+
+       // ImpalaConnection impala = new ImpalaConnection("localhost", 21050, "default", "", "");
         try {
             // Connect to Impala
             impala.connect();
@@ -195,9 +351,19 @@ public class ImpalaConnection {
             }
             
         } catch (SQLException e) {
-            System.err.println("Error: " + e.getMessage());
-        } finally {
+            System.err.println("SQL Error: " + e.getMessage());
+            System.err.println("SQL State: " + e.getSQLState());
+            System.err.println("Error Code: " + e.getErrorCode());
+            e.printStackTrace();
+        }
+        
+    } catch (Exception e) {
+        System.err.println("Unexpected error: " + e.getMessage());
+        e.printStackTrace();
+    } finally {
+        if (impala != null) {
             impala.close();
+        }
         }
     }
 }
